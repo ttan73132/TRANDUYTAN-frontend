@@ -19,6 +19,7 @@ import 'package:tranduytan/screens/shared_handovers.dart';
 import 'package:tranduytan/screens/shared_management.dart';
 import 'package:tranduytan/screens/translation.dart';
 import 'package:tranduytan/services/api.dart';
+import 'package:tranduytan/services/biometrics.dart';
 import 'package:tranduytan/services/translation.dart';
 import 'package:tranduytan/widgets/common.dart';
 
@@ -94,6 +95,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(DeviceBiometrics.channel, (_) async => false);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('google_mlkit_on_device_translator'),

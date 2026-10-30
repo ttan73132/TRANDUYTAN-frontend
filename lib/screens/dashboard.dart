@@ -5,6 +5,7 @@ import '../core/format.dart';
 import '../core/theme.dart';
 import '../providers/session.dart';
 import '../widgets/common.dart';
+import 'settings.dart';
 import 'management.dart';
 import 'records.dart';
 
@@ -369,6 +370,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 InfoLine('Chức vụ', user.values['position']),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('Cài đặt và hồ sơ'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => openPage(context, const SettingsScreen()),
           ),
         ),
         const SizedBox(height: 24),

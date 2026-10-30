@@ -11,6 +11,7 @@ import 'shared_management.dart';
 import 'shared_attendance.dart';
 import 'translation.dart';
 import 'shared_handovers.dart';
+import 'settings.dart';
 
 class SharedAccountStatus extends StatefulWidget {
   const SharedAccountStatus({super.key});
@@ -67,6 +68,11 @@ class _SharedAccountStatusState extends State<SharedAccountStatus> {
             TextButton(
               onPressed: busy ? null : () => run(session.logout),
               child: const Text('Đăng xuất'),
+            ),
+            TextButton.icon(
+              onPressed: () => openPage(context, const SettingsScreen()),
+              icon: const Icon(Icons.settings_outlined),
+              label: const Text('Cài đặt và hồ sơ cá nhân'),
             ),
             TextButton.icon(
               onPressed: () => openPage(context, const TranslationScreen()),
@@ -145,7 +151,7 @@ class SharedDashboard extends StatelessWidget {
   const SharedDashboard({super.key});
   @override
   Widget build(BuildContext context) {
-    final session = context.read<Session>();
+    final session = context.watch<Session>();
     return LoadView<Json>(
       refreshInterval: const Duration(seconds: 15),
       load: () => session.api.get('/dashboard'),
@@ -161,7 +167,7 @@ class SharedDashboard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Xin chào, ${session.user!.fullName}',
+              'Xin chào, ${session.profileName}',
               style: const TextStyle(color: muted),
             ),
             const SizedBox(height: 12),
@@ -374,7 +380,7 @@ class _SharedProfileState extends State<SharedProfile> {
 
   @override
   Widget build(BuildContext context) {
-    final session = context.read<Session>();
+    final session = context.watch<Session>();
     final user = session.user!;
     return ListView(
       padding: const EdgeInsets.all(24),
@@ -386,14 +392,16 @@ class _SharedProfileState extends State<SharedProfile> {
             radius: 42,
             backgroundColor: navy,
             child: Text(
-              user.initial,
+              session.profileName.isEmpty
+                  ? user.initial
+                  : session.profileName.substring(0, 1).toUpperCase(),
               style: const TextStyle(fontSize: 30, color: Colors.white),
             ),
           ),
         ),
         const SizedBox(height: 18),
         Text(
-          user.fullName,
+          session.profileName,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleLarge,
         ),
@@ -405,6 +413,20 @@ class _SharedProfileState extends State<SharedProfile> {
               children: [
                 InfoLine('Username', user.values['username']),
                 InfoLine('Email', user.values['email']),
+                if (session.preferences.profile.isNotEmpty) ...[
+                  const Divider(),
+                  const Text(
+                    'Hồ sơ lưu trên thiết bị',
+                    style: TextStyle(color: muted),
+                  ),
+                  InfoLine('Điện thoại', session.preferences.profile['phone']),
+                  InfoLine(
+                    'Phòng ban',
+                    session.preferences.profile['department'],
+                  ),
+                  InfoLine('Chức vụ', session.preferences.profile['position']),
+                  InfoLine('Giới thiệu', session.preferences.profile['bio']),
+                ],
                 InfoLine('Quyền', statusLabel(user.values['role'] as String?)),
                 InfoLine(
                   'Trạng thái',
@@ -412,6 +434,16 @@ class _SharedProfileState extends State<SharedProfile> {
                 ),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.settings_outlined, color: blue),
+            title: const Text('Cài đặt'),
+            subtitle: const Text('Cỡ chữ, màu nền, hồ sơ và sinh trắc học'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => openPage(context, const SettingsScreen()),
           ),
         ),
         const SizedBox(height: 20),
@@ -425,7 +457,7 @@ class _SharedProfileState extends State<SharedProfile> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text(
-                    'Đăng nhập bằng khuôn mặt',
+                    'Khuôn mặt và OTP qua máy chủ',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
@@ -471,6 +503,11 @@ class _SharedProfileState extends State<SharedProfile> {
           onPressed: () => run(session.logout),
           label: 'Đăng xuất',
           icon: Icons.logout,
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Đăng xuất thu hồi phiên; lần sau cần mật khẩu và OTP. Muốn mở nhanh bằng sinh trắc học, chọn Khóa ứng dụng trong Cài đặt.',
+          style: TextStyle(color: muted),
         ),
       ],
     );

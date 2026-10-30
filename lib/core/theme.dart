@@ -4,7 +4,7 @@ const navy = Color(0xFF102A43);
 const blue = Color(0xFF246BFD);
 const canvas = Color(0xFFF3F6FA);
 const muted = Color(0xFF6B7C93);
-ThemeData appTheme() => ThemeData(
+ThemeData appTheme({Color background = canvas}) => ThemeData(
   useMaterial3: true,
   fontFamily: 'BeVietnamPro',
   colorScheme: ColorScheme.fromSeed(
@@ -13,9 +13,9 @@ ThemeData appTheme() => ThemeData(
     secondary: navy,
     surface: Colors.white,
   ),
-  scaffoldBackgroundColor: canvas,
-  appBarTheme: const AppBarTheme(
-    backgroundColor: canvas,
+  scaffoldBackgroundColor: background,
+  appBarTheme: AppBarTheme(
+    backgroundColor: background,
     foregroundColor: navy,
     centerTitle: false,
     elevation: 0,

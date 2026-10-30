@@ -17,6 +17,7 @@ import 'package:tranduytan/screens/auth.dart';
 import 'package:tranduytan/screens/dashboard.dart';
 import 'package:tranduytan/screens/management.dart';
 import 'package:tranduytan/screens/records.dart';
+import 'package:tranduytan/screens/settings.dart';
 
 // Screenshots use test fixtures only; these records are never bundled into the app.
 void main() {
@@ -79,6 +80,8 @@ void main() {
     'attendance': const AttendanceScreen(),
     'explanations': const ExplanationScreen(),
     'attendance-detail': const AttendanceDetailScreen(id: 'record-1'),
+    'settings': const SettingsScreen(),
+    'edit-profile': const EditProfileScreen(),
   };
   for (final entry in cases.entries) {
     testWidgets('${entry.key} renders at phone width', (tester) async {

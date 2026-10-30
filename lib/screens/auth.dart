@@ -50,11 +50,15 @@ class AuthFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFE7EFFF), canvas, Color(0xFFEAF4F7)],
+          colors: [
+            const Color(0xFFE7EFFF),
+            Theme.of(context).scaffoldBackgroundColor,
+            const Color(0xFFEAF4F7),
+          ],
         ),
       ),
       child: SafeArea(
@@ -183,6 +187,14 @@ class _LoginScreenState extends State<LoginScreen> {
   bool busy = false, obscure = true;
   String? error;
   @override
+  void initState() {
+    super.initState();
+    username.text =
+        context.read<Session>().rememberedAccount?['username']?.toString() ??
+        '';
+  }
+
+  @override
   void dispose() {
     username.dispose();
     password.dispose();
@@ -235,6 +247,24 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> biometricLogin() async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await context.read<Session>().biometricLogin();
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => error = 'Chưa mở được bằng sinh trắc học. Thử lại hoặc đăng nhập bằng mật khẩu và OTP.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => AuthFrame(
     child: Form(
@@ -264,6 +294,22 @@ class _LoginScreenState extends State<LoginScreen> {
             style: TextStyle(color: muted),
           ),
           const SizedBox(height: 32),
+          if (context.watch<Session>().biometricEnabled) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : biometricLogin,
+                icon: const Icon(Icons.fingerprint, size: 30),
+                label: const Text('Đăng nhập bằng vân tay / khuôn mặt'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Dùng tài khoản đã xác thực trên thiết bị này.',
+              style: TextStyle(color: muted),
+            ),
+            const SizedBox(height: 24),
+          ],
           TextFormField(
             controller: username,
             autofillHints: const [AutofillHints.username],
@@ -551,7 +597,31 @@ class _OtpScreenState extends State<OtpScreen> {
         'challengeId': widget.challenge['challengeId'],
         shared ? 'code' : 'otp': controller.text,
       });
-      await session.accept(result);
+      await session.accept(result, freshLogin: true);
+      if (mounted &&
+          session.api.isShared &&
+          !session.biometricEnabled &&
+          await session.biometrics.available()) {
+        if (!mounted) return;
+        final enabled = await confirm(
+          context,
+          'Bật đăng nhập sinh trắc học?',
+          'Lần sau mở app bằng vân tay hoặc khuôn mặt được Android hỗ trợ, không cần nhập lại OTP khi phiên còn hiệu lực. Mọi sinh trắc học đã đăng ký trên điện thoại đều có thể mở app.',
+        );
+        if (enabled) {
+          try {
+            await session.enableBiometrics();
+          } catch (_) {
+            if (mounted) {
+              notice(
+                context,
+                'Chưa bật sinh trắc học. Bạn có thể bật lại trong Cài đặt.',
+                error: true,
+              );
+            }
+          }
+        }
+      }
       if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
     } catch (e) {
       if (mounted) setState(() => error = e.toString());

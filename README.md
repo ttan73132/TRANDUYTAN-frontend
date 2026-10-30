@@ -1,6 +1,6 @@
 # TRANDUYTAN Frontend - Flutter
 
-Group 8 employee attendance app. Android ID: `vn.nhom8.tranduytan`. Version: **1.2.0+7**.
+Group 8 employee attendance app. Android ID: `vn.nhom8.tranduytan`. Version: **1.3.0+8**.
 
 - Frontend: https://github.com/ttan73132/TRANDUYTAN-frontend
 - Backend: https://github.com/ttan73132/TRANDUYTAN-backend
@@ -12,6 +12,8 @@ Flutter project is at this repository's root. The backend repository preserves t
 ## Features
 
 - Email OTP, pending approval, secure access/refresh tokens.
+- Opt-in fingerprint/supported face quick login after OTP, biometric-protected Android Keystore refresh token, app lock after 30 seconds in background (Android 11+).
+- Settings: persistent font size (85-140%), five background colors, per-account local profile editing. Profile edits do not sync to the group API or change account permissions. [Usage and limitations](docs/SETTINGS-BIOMETRICS.md).
 - Admin/manager/employee roles; employee, branch and shift management.
 - GPS attendance, motion confirmation, face enrollment/login with OTP.
 - Attendance reports, corrections and versioned bilingual handovers.
