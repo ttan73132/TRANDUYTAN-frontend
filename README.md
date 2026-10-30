@@ -1,6 +1,6 @@
 # TRANDUYTAN Frontend - Flutter
 
-Group 8 employee attendance app. Android ID: `vn.nhom8.tranduytan`. Version: **1.3.0+8**.
+Group 8 employee attendance app. Android ID: `vn.nhom8.tranduytan`. Version: **1.3.1+9**.
 
 - Frontend: https://github.com/ttan73132/TRANDUYTAN-frontend
 - Backend: https://github.com/ttan73132/TRANDUYTAN-backend
@@ -13,6 +13,7 @@ Flutter project is at this repository's root. The backend repository preserves t
 
 - Email OTP, pending approval, secure access/refresh tokens.
 - Opt-in fingerprint/supported face quick login after OTP, biometric-protected Android Keystore refresh token, app lock after 30 seconds in background (Android 11+).
+- Separate camera face quick login: local ML Kit landmarks and OpenCV SFace identity comparison, randomized head-turn challenge, one-time 39 MB model download. Camera 2D is weaker than fingerprint and is not certified anti-spoofing. Enabling it stores the rotating session in encrypted local storage accessible after the app's face check; fingerprint and camera methods then use the same latest session. [Details](docs/LOCAL_FACE.md).
 - Settings: persistent font size (85-140%), five background colors, per-account local profile editing. Profile edits do not sync to the group API or change account permissions. [Usage and limitations](docs/SETTINGS-BIOMETRICS.md).
 - Admin/manager/employee roles; employee, branch and shift management.
 - GPS attendance, motion confirmation, face enrollment/login with OTP.

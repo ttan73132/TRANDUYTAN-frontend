@@ -9,14 +9,19 @@ import '../services/api.dart';
 import '../core/format.dart';
 import '../core/navigation.dart';
 import '../services/biometrics.dart';
+import '../services/local_face.dart';
 import 'preferences.dart';
 
 class Session extends ChangeNotifier {
   final ApiClient api;
   final FlutterSecureStorage storage;
   final DeviceBiometrics biometrics;
+  final LocalFaceAccess faceAccess;
   late final AppPreferences preferences = AppPreferences(storage);
   bool biometricEnabled = false;
+  bool faceEnabled = false;
+  Json? faceAccount;
+  bool get quickLoginEnabled => biometricEnabled || faceEnabled;
   Json? rememberedAccount;
   bool _unlocking = false;
   AppUser? user;
@@ -29,9 +34,11 @@ class Session extends ChangeNotifier {
     ApiClient? api,
     FlutterSecureStorage? storage,
     DeviceBiometrics? biometrics,
+    LocalFaceAccess? faceAccess,
   }) : api = api ?? ApiClient(),
        storage = storage ?? const FlutterSecureStorage(),
-       biometrics = biometrics ?? DeviceBiometrics() {
+       biometrics = biometrics ?? DeviceBiometrics(),
+       faceAccess = faceAccess ?? LocalFaceAccess() {
     this.api.onExpired = expire;
     this.api.onRefresh = refresh;
   }
@@ -73,7 +80,26 @@ class Session extends ChangeNotifier {
           await storage.delete(key: 'biometric_account_v1');
         }
       }
-      if (biometricEnabled) {
+      final faceMarker = await storage.read(key: 'face_account_v1');
+      if (faceMarker != null) {
+        try {
+          final account = Map<String, dynamic>.from(
+            jsonDecode(faceMarker) as Map,
+          );
+          if (api.isShared &&
+              account['origin'] == api.baseUrl &&
+              account['id'] is String &&
+              (rememberedAccount == null ||
+                  rememberedAccount!['id'] == account['id'])) {
+            faceAccount = account;
+            faceEnabled = true;
+            rememberedAccount ??= account;
+          }
+        } catch (_) {
+          await storage.delete(key: 'face_account_v1');
+        }
+      }
+      if (quickLoginEnabled) {
         api.token = null;
         refreshToken = null;
         user = null;
@@ -108,15 +134,26 @@ class Session extends ChangeNotifier {
       api.baseUrl = previous;
       rethrow;
     }
-    if (previous != url) await disableBiometrics();
+    if (previous != url) {
+      await disableBiometrics();
+      await disableFace();
+    }
     notifyListeners();
   }
 
   Future<void> accept(Json result, {bool freshLogin = false}) async {
+    if (freshLogin) _generation++;
     final generation = _generation;
     final value = result['accessToken'] as String;
     final nextUser = AppUser(Map<String, dynamic>.from(result['user'] as Map));
     final nextRefresh = api.isShared ? result['refreshToken'] as String : null;
+    if (freshLogin && faceEnabled) {
+      faceEnabled = false;
+      faceAccount = null;
+      if (!biometricEnabled) rememberedAccount = null;
+      await storage.delete(key: 'face_account_v1');
+      await faceAccess.clear();
+    }
     if (freshLogin && biometricEnabled) {
       await storage.delete(key: 'biometric_account_v1');
       biometricEnabled = false;
@@ -127,13 +164,15 @@ class Session extends ChangeNotifier {
       await disableBiometrics();
     }
     if (api.isShared) {
-      if (biometricEnabled) {
+      if (faceEnabled) {
+        await faceAccess.saveToken(nextRefresh!);
+      } else if (biometricEnabled) {
         await biometrics.save(nextRefresh!);
       } else {
         await storage.write(key: 'refresh_token', value: nextRefresh);
       }
     }
-    if (!biometricEnabled) {
+    if (!quickLoginEnabled) {
       await storage.write(key: 'access_token', value: value);
     }
     if (generation != _generation) return;
@@ -154,6 +193,8 @@ class Session extends ChangeNotifier {
 
   Future<bool> _refresh() async {
     final generation = _generation;
+    final faceBinding = faceAccount;
+    final biometricBinding = rememberedAccount;
     final current = refreshToken;
     if (current == null) return false;
     try {
@@ -161,7 +202,14 @@ class Session extends ChangeNotifier {
       if (generation != _generation) {
         // Locking must retain a token already rotated by the server, without
         // restoring protected screens. Logout clears the biometric marker.
-        if (biometricEnabled &&
+        if (user == null &&
+            faceEnabled &&
+            identical(faceBinding, faceAccount) &&
+            (result['user'] as Map)['id'] == faceAccount?['id']) {
+          await faceAccess.saveToken(result['refreshToken'] as String);
+        } else if (user == null &&
+            biometricEnabled &&
+            identical(biometricBinding, rememberedAccount) &&
             (result['user'] as Map)['id'] == rememberedAccount?['id']) {
           await biometrics.save(result['refreshToken'] as String);
         }
@@ -192,10 +240,14 @@ class Session extends ChangeNotifier {
     refreshToken = null;
     storage.delete(key: 'refresh_token');
     biometricEnabled = false;
+    faceEnabled = false;
+    faceAccount = null;
     rememberedAccount = null;
     preferences.profile = {};
     storage.delete(key: 'biometric_account_v1');
     biometrics.clear().catchError((_) {});
+    storage.delete(key: 'face_account_v1');
+    faceAccess.clear().catchError((_) {});
     // Protected pages may sit above AppGate in the navigator stack.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appNavigatorKey.currentState?.popUntil((route) => route.isFirst);
@@ -269,7 +321,7 @@ class Session extends ChangeNotifier {
   }
 
   Future<void> disableBiometrics() async {
-    if (user != null && api.token != null) {
+    if (user != null && api.token != null && !faceEnabled) {
       await storage.write(key: 'access_token', value: api.token);
       if (refreshToken != null) {
         await storage.write(key: 'refresh_token', value: refreshToken);
@@ -278,7 +330,7 @@ class Session extends ChangeNotifier {
     await storage.delete(key: 'biometric_account_v1');
     await biometrics.clear();
     biometricEnabled = false;
-    rememberedAccount = null;
+    rememberedAccount = faceAccount;
     notifyListeners();
   }
 
@@ -288,7 +340,10 @@ class Session extends ChangeNotifier {
     final generation = _generation;
     try {
       await _refreshing;
-      final token = await biometrics.unlock();
+      final proof = await biometrics.unlock();
+      final token = faceEnabled && proof != null
+          ? await faceAccess.token()
+          : proof;
       if (generation != _generation) return;
       if (token == null) {
         throw const ApiException(
@@ -310,7 +365,7 @@ class Session extends ChangeNotifier {
   }
 
   void lock() {
-    if (!biometricEnabled || user == null) return;
+    if (!quickLoginEnabled || user == null) return;
     _generation++;
     api.token = null;
     refreshToken = null;
@@ -320,5 +375,68 @@ class Session extends ChangeNotifier {
       appNavigatorKey.currentState?.popUntil((route) => route.isFirst);
     });
     notifyListeners();
+  }
+
+  Future<void> enableFace(List<num> template) async {
+    await _refreshing;
+    if (user == null || refreshToken == null || !api.isShared) {
+      throw const ApiException('Đăng nhập bằng mật khẩu và OTP trước.');
+    }
+    await faceAccess.enroll(template, refreshToken!);
+    final account = <String, dynamic>{
+      'id': user!.id,
+      'username': user!.values['username'],
+      'origin': api.baseUrl,
+    };
+    await storage.write(key: 'face_account_v1', value: jsonEncode(account));
+    faceEnabled = true;
+    faceAccount = account;
+    rememberedAccount ??= account;
+    await storage.delete(key: 'access_token');
+    await storage.delete(key: 'refresh_token');
+    notifyListeners();
+  }
+
+  Future<void> disableFace() async {
+    if (!faceEnabled) return;
+    if (user != null && refreshToken != null) {
+      if (biometricEnabled) {
+        await biometrics.save(refreshToken!);
+      } else {
+        await storage.write(key: 'refresh_token', value: refreshToken);
+        await storage.write(key: 'access_token', value: api.token);
+      }
+    }
+    await storage.delete(key: 'face_account_v1');
+    await faceAccess.clear();
+    faceEnabled = false;
+    faceAccount = null;
+    if (!biometricEnabled) rememberedAccount = null;
+    notifyListeners();
+  }
+
+  Future<void> faceLogin(List<num> observation) async {
+    if (_unlocking || !faceEnabled) return;
+    _unlocking = true;
+    final generation = _generation;
+    try {
+      await _refreshing;
+      if (faceSimilarity(await faceAccess.template(), observation) < .5) {
+        throw const ApiException('Khuôn mặt không khớp tài khoản đã đăng ký.');
+      }
+      final token = await faceAccess.token();
+      if (generation != _generation || token == null) return;
+      final result = await api.post('/auth/refresh', {'refreshToken': token});
+      if (generation != _generation) return;
+      if ((result['user'] as Map)['id'] != faceAccount?['id']) {
+        throw const ApiException('Phiên không khớp tài khoản.');
+      }
+      await accept(result);
+    } on ApiException catch (e) {
+      if (e.status == 401 || e.status == 403) expire();
+      rethrow;
+    } finally {
+      _unlocking = false;
+    }
   }
 }

@@ -1,4 +1,4 @@
-# Cài đặt và đăng nhập sinh trắc học (1.3.0+8)
+# Cài đặt và đăng nhập sinh trắc học (1.3.1+9)
 
 ## Cách sử dụng
 
@@ -19,7 +19,9 @@ Sinh trắc học cần Android 11 trở lên và đã đăng ký trong Cài đ�
 
 ## Cơ chế
 
-Lần đầu vẫn xác minh OTP qua API nhóm. Sau khi bật, refresh token chuyển sang namespace Android Keystore riêng, khóa bằng sinh trắc học Class 3; bản token thông thường bị xóa. Khởi động app không tự đọc vault hoặc mở dữ liệu được bảo vệ. Xác thực thành công mới lấy token để gọi `/auth/refresh` và lưu token đã xoay. Khóa trong lúc refresh không được phục hồi màn hình đăng nhập thành công ngoài ý muốn. Phản hồi tải hồ sơ cũ không được mở khóa phiên.
+Lần đầu vẫn xác minh OTP qua API nhóm. Khi chỉ bật sinh trắc học Android, refresh token chuyển sang namespace Android Keystore riêng, khóa bằng sinh trắc học Class 3; bản token thông thường bị xóa. Khởi động app không tự đọc vault hoặc mở dữ liệu được bảo vệ. Xác thực thành công mới lấy token để gọi `/auth/refresh` và lưu token đã xoay. Khóa trong lúc refresh không được phục hồi màn hình đăng nhập thành công ngoài ý muốn. Phản hồi tải hồ sơ cũ không được mở khóa phiên.
+
+Bản 1.3.1 bổ sung lựa chọn riêng **Quét mặt bằng camera**, xử lý nhận diện trên thiết bị. Khi bật camera, mẫu mặt và phiên mới nhất lưu mã hóa trong namespace riêng, bảo vệ bằng kiểm tra mặt của app, không khóa bằng sinh trắc học phần cứng. Vân tay dùng vault làm bước xác thực rồi lấy cùng phiên mới nhất. Camera 2D yếu hơn vân tay và không bảo đảm chống ảnh/video giả. Xem [LOCAL_FACE.md](LOCAL_FACE.md) để đăng ký, đăng nhập và hiểu giới hạn.
 
 Sinh trắc học do Android xử lý. App không đọc mẫu vân tay, không chụp hoặc gửi ảnh cho chức năng này. Chức năng **Khuôn mặt và OTP qua máy chủ** cũ vẫn là luồng riêng, có bước đồng ý gửi ảnh và vẫn cần OTP.
 

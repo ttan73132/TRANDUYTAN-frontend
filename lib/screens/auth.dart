@@ -9,6 +9,7 @@ import '../providers/session.dart';
 import '../widgets/common.dart';
 import '../services/face.dart';
 import 'translation.dart';
+import 'face_scan.dart';
 
 class BrandMark extends StatelessWidget {
   const BrandMark({super.key});
@@ -265,6 +266,31 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> cameraLogin() async {
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final session = context.read<Session>();
+      final reference = await session.faceAccess.template();
+      if (!mounted) return;
+      final observation = await openPage<List<double>>(
+        context,
+        FaceScanScreen(access: session.faceAccess, reference: reference),
+      );
+      if (observation != null) await session.faceLogin(observation);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => error = 'Chưa đăng nhập được bằng khuôn mặt. Thử lại hoặc dùng vân tay / mật khẩu và OTP.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => AuthFrame(
     child: Form(
@@ -294,6 +320,17 @@ class _LoginScreenState extends State<LoginScreen> {
             style: TextStyle(color: muted),
           ),
           const SizedBox(height: 32),
+          if (context.watch<Session>().faceEnabled) ...[
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: busy ? null : cameraLogin,
+                icon: const Icon(Icons.face_retouching_natural),
+                label: const Text('Quét mặt để đăng nhập'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (context.watch<Session>().biometricEnabled) ...[
             SizedBox(
               width: double.infinity,

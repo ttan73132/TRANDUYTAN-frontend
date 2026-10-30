@@ -5,6 +5,7 @@ import '../core/theme.dart';
 import '../providers/preferences.dart';
 import '../providers/session.dart';
 import '../widgets/common.dart';
+import 'face_scan.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,6 +16,33 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool busy = false;
   double? draftScale;
+  Future<void> enrollFace() async {
+    if (!await confirm(
+      context,
+      'Bật quét mặt vào thẳng?',
+      'Camera 2D có mức bảo vệ thấp hơn vân tay, không bảo đảm chống ảnh/video giả. Mẫu khuôn mặt lưu mã hóa trên điện thoại, không gửi ảnh lên máy chủ. Cần tải gói nhận diện 39 MB một lần. Bạn đồng ý đăng ký?',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    final session = context.read<Session>();
+    await run(() async {
+      final template = await openPage<List<double>>(
+        context,
+        FaceScanScreen(access: session.faceAccess),
+      );
+      if (template != null) {
+        await session.enableFace(template);
+        if (mounted) {
+          notice(
+            context,
+            'Đã bật quét mặt. Khóa ứng dụng rồi chọn Quét mặt để đăng nhập.',
+          );
+        }
+      }
+    });
+  }
+
   Future<void> run(Future<void> Function() action) async {
     setState(() => busy = true);
     try {
@@ -151,7 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Sinh trắc học xử lý trên điện thoại (Android 11 trở lên). Mọi sinh trắc học đã đăng ký trên máy đều có thể mở app. Máy chỉ có khuôn mặt 2D có thể cần dùng vân tay. Phiên hết hạn hoặc bị thu hồi cần mật khẩu và OTP lại.',
                     ),
                   ),
-                  if (session.biometricEnabled)
+                  if (session.quickLoginEnabled)
                     ListTile(
                       leading: const Icon(Icons.lock_outline),
                       title: const Text('Khóa ứng dụng'),
@@ -160,6 +188,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       onTap: busy ? null : session.lock,
                     ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.face_retouching_natural),
+                    title: const Text('Quét mặt bằng camera'),
+                    subtitle: Text(
+                      session.faceEnabled
+                          ? 'Đã đăng ký trên điện thoại · vào thẳng khi phiên còn hiệu lực'
+                          : 'Đăng ký mẫu mặt để lần sau không cần OTP',
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Xử lý trên máy. Camera 2D có mức bảo vệ thấp hơn vân tay; không bảo đảm chống ảnh/video giả.',
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Wrap(
+                      spacing: 12,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: busy ? null : enrollFace,
+                          icon: const Icon(Icons.camera_front),
+                          label: Text(
+                            session.faceEnabled
+                                ? 'Đăng ký lại khuôn mặt'
+                                : 'Đăng ký khuôn mặt trên máy',
+                          ),
+                        ),
+                        if (session.faceEnabled)
+                          TextButton(
+                            onPressed: busy
+                                ? null
+                                : () => run(session.disableFace),
+                            child: const Text('Tắt và xóa mẫu mặt'),
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
