@@ -59,6 +59,7 @@ app.*.map.json
 **/*.jks
 **/*.keystore
 **/.gradle/
+**/.kotlin/
 **/.idea/
 **/coverage/
 **/*.log
